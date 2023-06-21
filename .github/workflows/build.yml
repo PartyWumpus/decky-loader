@@ -137,6 +137,16 @@ jobs:
     - name: Checkout 🧰
       uses: actions/checkout@v3
 
+    - name: Set up Python 3.10.2 🐍
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10.2"
+        
+    - name: Install Python dependencies ⬇️
+      run: |
+        python -m pip install --upgrade pip
+        pip install langcodes language_data
+
     - name: Install semver-tool asdf
       uses: asdf-vm/actions/install@v1
       with:
@@ -196,6 +206,20 @@ jobs:
         tag: ${{ steps.ready_tag.outputs.tag_name }}
         message: Pre-release ${{ steps.ready_tag.outputs.tag_name }}
 
+    - name: Generate Language Notes
+      id: language_notes
+      run: |
+        NEW_LANGS=`git diff --name-status ${{ steps.latest_release.outputs.release }}..${{ steps.ready_tag.outputs.tag_name }} | grep '^A.*' | grep -E '\w{2}-\w{2}' -o`
+        BODY=`python -c """
+        import sys, langcodes
+        if sys.argv[1] == '': quit()
+        langs = []
+        for x in sys.argv[1].split('\n'):
+            langs.append(langcodes.Language.get(x).display_name())
+        print(f'''Support added for: {', '.join(langs)}''')
+        """ "${NEW_LANGS}"`
+        echo body=$BODY >> $GITHUB_OUTPUT
+
     - name: Release 📦
       uses: softprops/action-gh-release@v1
       if: ${{ github.event_name == 'workflow_dispatch' && !env.ACT  }}
@@ -203,8 +227,10 @@ jobs:
         name: Release ${{ steps.ready_tag.outputs.tag_name }}
         tag_name: ${{ steps.ready_tag.outputs.tag_name }}
         files: ./dist/PluginLoader
+        body: ${{ steps.language_notes.outputs.body }}
         prerelease: false
         generate_release_notes: true
+        append_body: true
   
   prerelease:
     name: Release the pre-release version of the package
@@ -215,6 +241,16 @@ jobs:
     steps:
     - name: Checkout 🧰
       uses: actions/checkout@v3
+
+    - name: Set up Python 3.10.2 🐍
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10.2"
+        
+    - name: Install Python dependencies ⬇️
+      run: |
+        python -m pip install --upgrade pip
+        pip install langcodes language_data
 
     - name: Install semver-tool asdf
       uses: asdf-vm/actions/install@v1
@@ -283,6 +319,21 @@ jobs:
         tag: ${{ steps.ready_tag.outputs.tag_name }}
         message: Pre-release ${{ steps.ready_tag.outputs.tag_name }}
 
+    - name: Generate Language Notes
+      id: language_notes
+      run: |
+        NEW_LANGS=`git diff --name-status ${{ steps.latest_release.outputs.release }}..${{ steps.ready_tag.outputs.tag_name }} | grep '^A.*' | grep -E '\w{2}-\w{2}' -o`
+        BODY=`python -c """
+        import sys, langcodes
+        if sys.argv[1] == '': quit()
+        langs = []
+        for x in sys.argv[1].split('\n'):
+            langs.append(langcodes.Language.get(x).display_name())
+        print(f'''Support added for: {', '.join(langs)}''')
+        """ "${NEW_LANGS}"`
+        echo body=$BODY >> $GITHUB_OUTPUT
+
+
     - name: Release 📦
       uses: softprops/action-gh-release@v1
       if: ${{ github.event_name == 'workflow_dispatch' && !env.ACT  }}
@@ -290,5 +341,7 @@ jobs:
         name: Prerelease ${{ steps.ready_tag.outputs.tag_name }}
         tag_name: ${{ steps.ready_tag.outputs.tag_name }}
         files: ./dist/PluginLoader
+        body: ${{ steps.language_notes.outputs.body }}
         prerelease: true
         generate_release_notes: true
+        append_body: true
